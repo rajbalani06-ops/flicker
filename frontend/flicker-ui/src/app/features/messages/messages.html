@@ -1,0 +1,52 @@
+<section class="dm-workspace" [class.chat-open-mobile]="mobileChatOpen()">
+  <aside class="dm-list">
+    <header class="dm-list-header"><div><span class="eyebrow">YOUR INBOX</span><h1>Messages</h1></div><span class="inbox-count">{{ conversations().length }}</span></header>
+    <div class="dm-search-wrap">
+      <label class="dm-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m16 16 4 4"></path></svg><input type="search" [ngModel]="searchText" (ngModelChange)="searchChanged($event)" (focus)="searchOpen.set(true)" placeholder="Search users to chat..." aria-label="Search users to chat"></label>
+      @if (searchOpen() && searchText.trim().length >= 2) {
+        <div class="search-results">
+          @for (user of searchResults(); track user.id) {
+            <button class="search-result" type="button" (click)="chooseUser(user)"><span class="dm-avatar">@if (avatar(user.profileImageUrl); as image) { <img [src]="image" alt=""> } @else { {{ initials(user.displayName || user.username) }} }</span><span><strong>{{ user.displayName || user.username }}</strong><small>&#64;{{ user.username }}</small></span><span class="start-chat">↗</span></button>
+          } @empty { @if (searchText.trim().length >= 2) { <p class="search-empty">No people found.</p> } }
+        </div>
+      }
+    </div>
+    <div class="thread-list">
+      @for (conversation of conversations(); track conversation.id) {
+        <button class="dm-thread" [class.dm-thread-active]="selected()?.id === conversation.id" (click)="open(conversation)">
+          <span class="dm-avatar">@if (avatar(conversation.avatarUrl); as image) { <img [src]="image" alt=""> } @else { {{ initials(conversation.displayName || conversation.username) }} }</span>
+          <span class="dm-thread-copy"><span class="thread-title"><strong>{{ conversation.displayName || ('@' + conversation.username) }}</strong><time>{{ relativeTime(conversation.updatedAt) }}</time></span><small>{{ conversation.lastMessage || 'Start a conversation' }}</small></span>
+          @if ((conversation.unreadCount || 0) > 0) { <span class="unread-badge">{{ conversation.unreadCount }}</span> }
+        </button>
+      } @empty { <div class="dm-empty-list"><span class="empty-icon">✉</span><strong>No conversations yet</strong><p>Search for someone to start a chat.</p></div> }
+    </div>
+  </aside>
+
+  <main class="dm-chat">
+    @if (selected(); as chat) {
+      <header class="dm-chat-header">
+        <button type="button" class="mobile-back" (click)="backToList()" aria-label="Back to conversations">←</button>
+        <span class="dm-avatar header-avatar">@if (avatar(chat.avatarUrl); as image) { <img [src]="image" alt=""> } @else { {{ initials(chat.displayName || chat.username) }} }</span>
+        <a class="recipient-link" [routerLink]="['/profile', chat.username]"><strong>{{ chat.displayName || ('@' + chat.username) }}</strong><small>&#64;{{ chat.username }}</small></a>
+        <div class="chat-options"><button type="button" class="options-button" (click)="menuOpen.set(!menuOpen())" aria-label="Conversation options">···</button>@if (menuOpen()) { <div class="options-menu"><button type="button" (click)="clearConfirmation.set(true); menuOpen.set(false)">Clear conversation</button></div> }</div>
+      </header>
+      @if (error()) { <div class="dm-error" role="status">{{ error() }}<button type="button" (click)="error.set('')" aria-label="Dismiss">×</button></div> }
+      <div class="dm-history" #history>
+        <div class="chat-intro"><span class="dm-avatar intro-avatar">@if (avatar(chat.avatarUrl); as image) { <img [src]="image" alt=""> } @else { {{ initials(chat.displayName || chat.username) }} }</span><strong>{{ chat.displayName || ('@' + chat.username) }}</strong><small>Start a private conversation.</small></div>
+        @if (loading() && !messages().length) { <p class="history-loading">Loading messages…</p> }
+        @for (message of messages(); track message.id) {
+          <div class="dm-message-row" [class.dm-mine]="mine(message)"><div class="dm-bubble"><p>{{ message.content }}</p><div class="bubble-meta"><time>{{ message.createdAt | date:'shortTime' }}</time>@if (mine(message) && message.id > 0) { <button type="button" class="dm-delete" (click)="askDelete(message)" aria-label="Delete message" title="Delete message"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6m4-6v6M5 7l1 14h12l1-14M9 7V4h6v3"></path></svg></button> }</div></div></div>
+        } @empty { @if (!loading()) { <p class="no-messages">No messages yet. Say hello.</p> } }
+      </div>
+      <form class="dm-compose" (ngSubmit)="send()"><textarea name="message" [(ngModel)]="draft" (keydown)="onComposerKeydown($event)" placeholder="Type a message..." rows="1" maxlength="2000" aria-label="Type a message"></textarea><button type="submit" [disabled]="!draft.trim()" aria-label="Send message" title="Send message"><svg viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4 20-7ZM22 2 11 13"></path></svg></button></form>
+      <p class="compose-hint">Enter to send <span>·</span> Shift + Enter for a new line</p>
+    } @else { <div class="dm-placeholder"><span class="placeholder-icon">✉</span><h2>Your messages</h2><p>Choose a conversation or search for someone to begin.</p></div> }
+  </main>
+</section>
+
+@if (messageToDelete(); as pendingMessage) {
+  <div class="modal-backdrop" (click)="cancelDelete()"><section class="confirm-modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="delete-message-title"><span class="modal-icon danger-icon">⌫</span><h2 id="delete-message-title">Delete message?</h2><p>This message will be removed from the conversation.</p><div class="modal-actions"><button type="button" class="cancel-button" (click)="cancelDelete()">Cancel</button><button type="button" class="danger-button" (click)="confirmDelete()">Delete message</button></div></section></div>
+}
+@if (clearConfirmation()) {
+  <div class="modal-backdrop" (click)="clearConfirmation.set(false)"><section class="confirm-modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="clear-chat-title"><span class="modal-icon danger-icon">⌫</span><h2 id="clear-chat-title">Clear conversation?</h2><p>All messages in this conversation will be removed.</p><div class="modal-actions"><button type="button" class="cancel-button" (click)="clearConfirmation.set(false)">Cancel</button><button type="button" class="danger-button" (click)="confirmClear()">Clear conversation</button></div></section></div>
+}

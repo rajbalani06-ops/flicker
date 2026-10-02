@@ -1,0 +1,135 @@
+<div class="feed-container">
+  <!-- Feed Header -->
+  <header class="feed-header">
+    <span class="user-badge">&#64;{{ authService.currentUser() || 'Guest' }}</span>
+    <div class="feed-user-search">
+      <label class="feed-search-box"><span aria-hidden="true">⌕</span><input type="search" [ngModel]="searchText" (ngModelChange)="searchChanged($event)" (focus)="searchOpen.set(true)" placeholder="Search people" aria-label="Search people"></label>
+      @if (searchOpen() && searchText.trim().length >= 2) {
+        <div class="feed-search-results" role="listbox">
+          @for (user of searchResults(); track user.id) {
+            <button type="button" class="feed-search-result" (click)="openProfile(user)" role="option">
+              <span class="feed-search-avatar">@if (avatarUrl(user.profileImageUrl); as image) { <img [src]="image" alt=""> } @else { {{ (user.displayName || user.username)[0].toUpperCase() }} }</span>
+              <span class="feed-search-copy"><strong>{{ user.displayName || user.username }}</strong><small>&#64;{{ user.username }}</small></span>
+            </button>
+          } @empty { <p class="feed-search-empty">No people found.</p> }
+        </div>
+      }
+    </div>
+  </header>
+
+  <div class="composer-container">
+    <div class="composer-row">
+      <div class="avatar-bubble">
+        {{ (authService.currentUser() || 'U')[0].toUpperCase() }}
+      </div>
+      <div class="composer-body">
+        <textarea
+          [(ngModel)]="newPostContent"
+          rows="3"
+          maxlength="280"
+          placeholder="What's happening?"
+          class="composer-textarea"
+          [disabled]="isPosting()"
+        ></textarea>
+
+        @if (imagePreview) {
+          <div class="image-preview-wrap">
+            <img [src]="imagePreview" alt="Selected post image preview" class="image-preview">
+            <button type="button" class="preview-remove" (click)="clearImage()" aria-label="Remove image">×</button>
+          </div>
+        }
+        @if (imageError) { <p class="image-error">{{ imageError }}</p> }
+        
+        <div class="composer-actions">
+          <span class="char-counter">{{ newPostContent.length }}/280</span>
+          
+          <div class="composer-btn-group">
+            <label class="btn-attach" title="Attach an image">
+              <input type="file" accept="image/*" (change)="onImageSelected($event)" [disabled]="isPosting()" hidden>
+              <span aria-hidden="true">＋ Image</span>
+            </label>
+            @if (postSuccess()) {
+              <span class="post-saved-msg">✓ Posted!</span>
+            }
+            <button
+              type="button"
+              (click)="publishPost()"
+              [disabled]="(!newPostContent.trim() && !selectedImage) || isPosting()"
+              class="btn-publish"
+            >
+              {{ isPosting() ? 'Posting...' : 'Post' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="posts-list">
+    @if (loading() && posts().length === 0) {
+      <div class="state-message">Loading feed...</div>
+    } @else if (posts().length === 0) {
+      <div class="empty-state">
+        <p class="empty-state-title">No posts in your feed yet</p>
+        <p class="empty-state-subtitle">Create a post above or explore profiles.</p>
+      </div>
+    } @else {
+      @for (post of posts(); track post.id) {
+        <article class="post-item">
+          <a [routerLink]="['/profile', post.authorUsername]" class="post-avatar">
+            @if (authorAvatarUrl(post); as avatarUrl) {
+              <img [src]="avatarUrl" [alt]="'@' + post.authorUsername + ' profile picture'">
+            } @else {
+              {{ post.authorUsername ? post.authorUsername[0].toUpperCase() : '?' }}
+            }
+          </a>
+          
+          <div class="post-content-container">
+            <div class="post-meta-row">
+              <div class="post-author-group">
+                <a [routerLink]="['/profile', post.authorUsername]" class="author-name">
+                  &#64;{{ post.authorUsername }}
+                </a>
+                <span class="post-time">· {{ post.createdAt | date:'shortTime' }}</span>
+              </div>
+
+              @if (isAuthor(post)) {
+                <button type="button" (click)="deletePost(post.id)" class="btn-delete" title="Delete post">
+                  <svg class="delete-svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                  </svg>
+                </button>
+              }
+            </div>
+
+            <p class="post-body">{{ post.content }}</p>
+            @if (post.imageUrl) {
+              <img class="post-image" [src]="post.imageUrl" alt="Post attachment" loading="lazy">
+            }
+
+            <div class="post-actions">
+              <button type="button" (click)="likePost(post)" class="btn-like">
+                <span></span> Like
+              </button>
+            </div>
+          </div>
+        </article>
+      }
+    }
+  </div>
+
+  @if (postToDeleteId() !== null) {
+    <div class="confirm-overlay" (click)="cancelDelete()">
+      <section class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="feed-delete-title" (click)="$event.stopPropagation()">
+        <div class="confirm-icon" aria-hidden="true">!</div>
+        <h2 id="feed-delete-title">Delete Post?</h2>
+        <p>This action cannot be undone.</p>
+        @if (deleteError()) { <p class="confirm-error" role="alert">{{ deleteError() }}</p> }
+        <div class="confirm-actions">
+          <button type="button" class="confirm-cancel" (click)="cancelDelete()" [disabled]="isDeleting()">Cancel</button>
+          <button type="button" class="confirm-delete" (click)="confirmDeletePost()" [disabled]="isDeleting()">{{ isDeleting() ? 'Deleting…' : 'Delete' }}</button>
+        </div>
+      </section>
+    </div>
+  }
+</div>

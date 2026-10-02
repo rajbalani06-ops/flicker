@@ -1,0 +1,70 @@
+<section class="profile-page">
+  @if (profile(); as user) {
+  <header class="profile-header">
+    <div class="profile-avatar-wrap">
+      <div class="profile-avatar">
+        @if (user.avatarUrl) { <img [src]="user.avatarUrl" alt="Profile avatar"> }
+        @else { {{ user.username[0].toUpperCase() }} }
+      </div>
+      @if (isOwnProfile) {
+      <label class="avatar-edit" [class.avatar-edit-disabled]="saving()" aria-label="Change profile picture"
+        title="Change profile picture">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M3 8.5A1.5 1.5 0 0 1 4.5 7h2l1.2-1.8A1.5 1.5 0 0 1 9 4.5h6a1.5 1.5 0 0 1 1.3.7L17.5 7h2A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5v-9Z" />
+          <circle cx="12" cy="12.5" r="3.25" />
+        </svg>
+        <input type="file" accept="image/*" (change)="onAvatar($event)" [disabled]="saving()"
+          aria-label="Select a profile picture">
+      </label>
+      }
+    </div>
+    <div class="profile-heading">
+      <h1>&#64;{{ user.username }}</h1>
+      @if (isOwnProfile && editingBio()) {
+      <textarea class="bio-editor" [(ngModel)]="bioDraft" maxlength="160" rows="3"
+        placeholder="Write a short bio"></textarea>
+      <div class="bio-edit-actions"><span>{{ bioDraft.length }}/160</span><button type="button" class="profile-action"
+          (click)="cancelBioEdit()" [disabled]="saving()">Cancel</button><button type="button"
+          class="profile-action profile-action-primary" (click)="saveBio()" [disabled]="saving()">{{ saving() ?
+          'Saving…' : 'Save bio' }}</button></div>
+      } @else {
+      <p>{{ user.bio || (isOwnProfile ? 'Add a short bio to your profile.' : 'On Flicker') }}</p>
+      @if (isOwnProfile) { <button type="button" class="profile-action" (click)="beginBioEdit()">Edit bio</button> }
+      }
+    </div>
+  </header>
+  @if (error()) { <p class="profile-error" role="alert">{{ error() }}</p> }
+  <div class="profile-stats"><span><strong>{{ user.followersCount ?? 0 }}</strong> followers</span><span><strong>{{
+        user.followingCount ?? 0 }}</strong> following</span><span>Joined {{ user.createdAt ? (user.createdAt |
+      date:'MMMM y') : 'recently' }}</span></div>
+  @if (isOwnProfile) { <label class="privacy-control"><span><strong>Private account</strong><small>Only approved
+        followers can see your posts.</small></span><input type="checkbox" [checked]="user.isPrivate || false"
+      (change)="setPrivacy($event)" [disabled]="saving()"></label> }
+  <h2 class="profile-posts-title">Posts</h2>
+  @for (post of posts(); track post.id) { <article class="profile-post">
+    <div class="profile-post-meta"><time>{{ post.createdAt | date:'medium' }}</time>
+      @if (isOwnProfile) { <button type="button" class="profile-delete" (click)="deletePost(post.id)" aria-label="Delete post" title="Delete post">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12m-10 0 .7 12h6.6L16 7M9 7V5h6v2m-5 3v6m4-6v6"/></svg>
+      </button> }
+    </div>
+    <p>{{ post.content }}</p>@if (post.imageUrl) { <img [src]="post.imageUrl" alt="Post attachment"> }
+  </article> }
+  @if (!posts().length) { <p class="profile-empty">No posts yet.</p> }
+  @if (postToDeleteId() !== null) {
+    <div class="confirm-overlay" (click)="cancelDelete()">
+      <section class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="profile-delete-title" (click)="$event.stopPropagation()">
+        <div class="confirm-icon" aria-hidden="true">!</div>
+        <h2 id="profile-delete-title">Delete Post?</h2>
+        <p>This action cannot be undone.</p>
+        @if (deleteError()) { <p class="confirm-error" role="alert">{{ deleteError() }}</p> }
+        <div class="confirm-actions">
+          <button type="button" class="confirm-cancel" (click)="cancelDelete()" [disabled]="isDeleting()">Cancel</button>
+          <button type="button" class="confirm-delete" (click)="confirmDeletePost()" [disabled]="isDeleting()">{{ isDeleting() ? 'Deleting…' : 'Delete' }}</button>
+        </div>
+      </section>
+    </div>
+  }
+  } @else if (loading()) { <p class="profile-empty">Loading profile…</p> } @else { <p class="profile-empty">{{ error()
+    || 'Could not load this profile.' }}</p> }
+</section>
